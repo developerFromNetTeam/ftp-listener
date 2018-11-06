@@ -1,5 +1,6 @@
 ﻿using System.Security.Permissions;
 using System.ServiceProcess;
+using windows_service_logic;
 
 namespace windows_service_worker
 {
@@ -12,12 +13,10 @@ namespace windows_service_worker
 
         protected override void OnStart(string[] args)
         {
-            
+            Worker.Run();
         }
 
         [PermissionSet(SecurityAction.Demand, Name = "FullTrust")]
-        
-
         protected override void OnStop()
         {
         }
