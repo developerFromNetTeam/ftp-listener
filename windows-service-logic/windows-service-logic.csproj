@@ -51,15 +51,19 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AzureBlobStorageClient.cs" />
     <Compile Include="FcmClient.cs" />
+    <Compile Include="Models\VideoMetadata.cs" />
     <Compile Include="Notification.cs" />
     <Compile Include="NotificationPayload.cs" />
     <Compile Include="VideoConverter.cs" />
+    <Compile Include="VideoFacade.cs" />
     <Compile Include="Worker.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

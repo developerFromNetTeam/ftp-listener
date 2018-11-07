@@ -15,33 +15,18 @@ namespace windows_service_logic
         {
             var folderPath = ConfigurationSettings.AppSettings["folderPath"];
 
-            var connectionString = ConfigurationSettings.AppSettings["connectionString"];
-            var blobContainer = ConfigurationSettings.AppSettings["container"];
-            var tokenFilePath = ConfigurationSettings.AppSettings["tokenFilePath"];
-            var firebaseServerKey = ConfigurationSettings.AppSettings["firebaseServerKey"];
-
-            CloudStorageAccount storageAccount = null;
-            if (CloudStorageAccount.TryParse(connectionString, out storageAccount) && storageAccount != null)
+            //var videoConverter = new VideoConverter();
+            var facade = new VideoFacade();
+            var watcher = new FileSystemWatcher();
+            watcher.Path = folderPath;
+            watcher.NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite
+                                   | NotifyFilters.FileName | NotifyFilters.DirectoryName;
+            watcher.Created += (sender, e) =>
             {
-                var cloudBlobClient = storageAccount.CreateCloudBlobClient();
-                var container = cloudBlobClient.GetContainerReference(blobContainer);
-
-                var fcmClient = new FcmClient(firebaseServerKey);
-                var videoConverter = new VideoConverter();
-                var watcher = new FileSystemWatcher();
-                watcher.Path = folderPath;
-                watcher.NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite
-                                       | NotifyFilters.FileName | NotifyFilters.DirectoryName;
-                watcher.Created += (sender, e) =>
+                Task.Run(async () =>
                 {
-                    Task.Run(async () =>
-                    {
-                        WaitFileReady(e.FullPath);
-                        videoConverter.ProcessVideo(e.FullPath, e.Name);
-                        //var cloudBlockBlob = container.GetBlockBlobReference(e.Name);
-                        //cloudBlockBlob.Properties.ContentType = MimeMapping.GetMimeMapping(e.FullPath);
-                        //await cloudBlockBlob.UploadFromFileAsync(e.FullPath);
-                        //await cloudBlockBlob.FetchAttributesAsync();
+                    WaitFileReady(e.FullPath);
+                    await facade.Process(e.FullPath, e.Name);
 
                         //await fcmClient.SendNotificationAsync(new NotificationPayload
                         //{
@@ -55,12 +40,11 @@ namespace windows_service_logic
                         //    }
                         //});
                     });
-                };
+            };
 
-                watcher.EnableRaisingEvents = true;
+            watcher.EnableRaisingEvents = true;
 
-                Console.ReadLine();
-            }
+            Console.ReadLine();
         }
 
         private static void WaitFileReady(string filePath)

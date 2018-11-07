@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -17,14 +18,21 @@ namespace windows_service_logic
 
         private readonly string firebaseServerKey;
 
-        public FcmClient(string firebaseServerKey)
+        public FcmClient()
         {
+            var firebaseServerKey = ConfigurationSettings.AppSettings["firebaseServerKey"];
+
+            if (string.IsNullOrWhiteSpace(firebaseServerKey))
+            {
+                throw new Exception("Firebase server key is empty.");
+            }
+
             this.firebaseServerKey = firebaseServerKey;
         }
 
         public async Task SendNotificationAsync(NotificationPayload notification)
         {
-            var result = await this.CallFcm(this.GenerateStringContent(notification));
+            await this.CallFcm(this.GenerateStringContent(notification));
         }
 
         private StringContent GenerateStringContent(dynamic model)

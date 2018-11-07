@@ -2,22 +2,22 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
+using System.IO;
 using System.Threading.Tasks;
+using windows_service_logic.Models;
 
 namespace windows_service_logic
 {
     public class VideoConverter
     {
-        private string toolFolderPath = ConfigurationSettings.AppSettings["toolFolderPath"];
-        private string workerFolderPath = ConfigurationSettings.AppSettings["workerFolderPath"];
+        private string toolFolderPath;
+        private string workerFolderPath;
         private Dictionary<string, string> cameraNameDictionary = new Dictionary<string, string>
         {
             {"ch3","Kitchen"}
         };
 
-        private const int SecondsToCutFromTheEnd = 8;
+        private const int SecondsToCutFromTheEnd = 6;
         private const int SecondsToLeaveForThePreRecordPart = 3;
         private const string InitialFileName = "video1.mp4";
         private const string FileNameWithCuttedEnd = "video-end-cut.mp4";
@@ -25,44 +25,88 @@ namespace windows_service_logic
         private const string FileNameWithSplitedPartOne = "video-end-cut-split-001.mp4";
         private const string FileNameWithSplitedPartTwo = "video-end-cut-split-002.mp4";
         private const string FileNameWithSplitedAndReEncoded = "video-end-cut-split-formated.mp4";
-        private const string ResultFileName = "RESULT.mp4";
-        public string ProcessVideo(string path, string name)
+
+        public VideoConverter()
         {
+            this.toolFolderPath = ConfigurationSettings.AppSettings["toolFolderPath"];
+            if (string.IsNullOrWhiteSpace(toolFolderPath))
+            {
+                throw new Exception("Tools folder path is empty.");
+            }
+
+            this.workerFolderPath = ConfigurationSettings.AppSettings["workerFolderPath"];
+            if (string.IsNullOrWhiteSpace(workerFolderPath))
+            {
+                throw new Exception("Worker folder path is empty.");
+            }
+        }
+        public VideoMetadata ProcessVideo(string path, string name)
+        {
+            var processFolderName = $"{workerFolderPath}\\{Guid.NewGuid()}";
             var metadata = this.ParseMetadata(name);
+
             //make mkv format from dav format.
-            this.RunCommand(this.ConvertFromToDavToMkv(path));
+            this.RunCommand(this.ConvertFromToDavToMkv(path, $"{processFolderName}\\{InitialFileName}"));
 
             //get initial video length.
-            this.RunCommand(this.GetVideoLength($"{workerFolderPath}\\{InitialFileName}"), output0 =>
+            this.RunCommand(this.GetVideoLength($"{processFolderName}\\{InitialFileName}"), output0 =>
             {
                 var videoLength0 = TimeSpan.Parse(output0);
                 //cut 9 seconds from the end of video.
-                this.RunCommand(this.CutVideo($"{workerFolderPath}\\{InitialFileName}",
-                    $"{workerFolderPath}\\{FileNameWithCuttedEnd}", "00:00:00",
+                this.RunCommand(this.CutVideo($"{processFolderName}\\{InitialFileName}",
+                    $"{processFolderName}\\{FileNameWithCuttedEnd}", "00:00:00",
                     videoLength0.Subtract(TimeSpan.FromSeconds(SecondsToCutFromTheEnd)).ToString()));
 
                 // split video in two parts: pre-record part and main part.
-                this.RunCommand(this.SplitVideo($"{workerFolderPath}\\{FileNameWithCuttedEnd}", $"{workerFolderPath}\\{FileNameWithSplited}", "00:00:05"));
+                this.RunCommand(this.SplitVideo($"{processFolderName}\\{FileNameWithCuttedEnd}", $"{processFolderName}\\{FileNameWithSplited}", "00:00:05"));
 
-                // get length of pre-record part.
-                this.RunCommand(this.GetVideoLength($"{workerFolderPath}\\{FileNameWithSplitedPartOne}"),
-                    output1 =>
-                    {
-                        var videoLength1 = TimeSpan.Parse(output1);
+                if (File.Exists($"{processFolderName}\\{FileNameWithSplitedPartTwo}"))
+                {
+                    // get length of pre-record part.
+                    this.RunCommand(this.GetVideoLength($"{processFolderName}\\{FileNameWithSplitedPartOne}"),
+                        output1 =>
+                        {
+                            var videoLength1 = TimeSpan.Parse(output1);
 
-                        // re-encode pre-record part in order to cut correctly, and cut it.
-                        this.RunCommand(this.ReEncodeAndCutVideo(
-                            $"{workerFolderPath}\\{FileNameWithSplitedPartOne}",
-                            $"{workerFolderPath}\\{FileNameWithSplitedAndReEncoded}",
-                            videoLength1.Subtract(TimeSpan.FromSeconds(SecondsToLeaveForThePreRecordPart)).ToString(), videoLength1.ToString()));
+                            // re-encode pre-record part in order to cut correctly, and cut it.
+                            this.RunCommand(this.ReEncodeAndCutVideo(
+                                $"{processFolderName}\\{FileNameWithSplitedPartOne}",
+                                $"{processFolderName}\\{FileNameWithSplitedAndReEncoded}",
+                                videoLength1.Subtract(TimeSpan.FromSeconds(SecondsToLeaveForThePreRecordPart))
+                                    .ToString(), videoLength1.ToString()));
 
-                        //merge two parts into result video.
-                        this.RunCommand(this.MergeVideoParts($"{workerFolderPath}\\{FileNameWithSplitedAndReEncoded}", $"{workerFolderPath}\\{FileNameWithSplitedPartTwo}", $"{workerFolderPath}\\{ResultFileName}"));
-                    });
+                            //merge two parts into result video.
+                            this.RunCommand(this.MergeVideoParts(
+                                $"{processFolderName}\\{FileNameWithSplitedAndReEncoded}",
+                                $"{processFolderName}\\{FileNameWithSplitedPartTwo}",
+                                $"{processFolderName}\\{metadata.FileName}"));
+                        });
+                }
+                else
+                {
+                    this.RunCommand(this.RenameFile($"{processFolderName}\\{FileNameWithCuttedEnd}", $"{metadata.FileName}"));
+                }
             });
-            return string.Empty;
+
+            this.RunCommand(this.GetVideoLength($"{processFolderName}\\{metadata.FileName}"), output =>
+            {
+                metadata.VideoLength = TimeSpan.Parse(output).ToString("hh':'mm':'ss");
+            });
+
+            var size = (new FileInfo($"{processFolderName}\\{metadata.FileName}").Length / 1024.0 / 1024.0).ToString("0.00");
+            metadata.VideoSizeMb = $"{size} MB";
+            metadata.FilePath = $"{processFolderName}\\{metadata.FileName}";
+            metadata.DirectoryPath = processFolderName;
+
+            return metadata;
         }
 
+        public void DeleteVideoProcessDirectory(string path)
+        {
+            Directory.Delete(path, true);
+        }
+
+        #region private
         private VideoMetadata ParseMetadata(string name)
         {
             var metadata = new VideoMetadata();
@@ -71,8 +115,9 @@ namespace windows_service_logic
             metadata.DVRName = nameParts[0];
             metadata.CameraName = cameraNameDictionary[nameParts[1]];
             metadata.IsMain = nameParts[2].Contains("main");
-            metadata.StarTime = this.ParseDateTime(nameParts[3]).AddSeconds(-11);
-            metadata.EndTime = this.ParseDateTime(nameParts[4]);
+
+            metadata.FileName =
+                $"{nameParts[0]}_{metadata.CameraName}_{nameParts[3].Substring(0, 4)}-{nameParts[3].Substring(4, 2)}-{nameParts[3].Substring(6, 2)}--{nameParts[3].Substring(8, 2)}-{nameParts[3].Substring(10, 2)}-{nameParts[3].Substring(12, 2)}.mp4";
             return metadata;
         }
 
@@ -81,9 +126,14 @@ namespace windows_service_logic
             return new DateTime(int.Parse(date.Substring(0, 4)), int.Parse(date.Substring(4, 2)), int.Parse(date.Substring(6, 2)), int.Parse(date.Substring(8, 2)), int.Parse(date.Substring(10, 2)), int.Parse(date.Substring(12, 2)));
         }
 
-        private string ConvertFromToDavToMkv(string filePath)
+        private string RenameFile(string filePath, string newName)
         {
-            return $"/C \"{toolFolderPath}\\mkvmerge -o {workerFolderPath}\\{InitialFileName} {filePath}\"";
+            return $"/C \"rename {filePath} {newName}\"";
+        }
+
+        private string ConvertFromToDavToMkv(string filePath, string newFilePath)
+        {
+            return $"/C \"{toolFolderPath}\\mkvmerge -o {newFilePath} {filePath}\"";
         }
 
         private string GetVideoLength(string filePath)
@@ -155,24 +205,6 @@ namespace windows_service_logic
                 }
             }
         }
-    }
-
-    public class VideoMetadata
-    {
-        public string DVRName { get; set; }
-
-        public string CameraName { get; set; }
-
-        public bool IsMain { get; set; }
-
-        public DateTime StarTime { get; set; }
-
-        public DateTime EndTime { get; set; }
-
-        public TimeSpan VideoLength
-        {
-            get { return EndTime - StarTime; }
-        }
-
+        #endregion
     }
 }
