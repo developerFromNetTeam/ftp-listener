@@ -15,7 +15,6 @@ namespace windows_service_logic
         {
             var folderPath = ConfigurationSettings.AppSettings["folderPath"];
 
-            //var videoConverter = new VideoConverter();
             var facade = new VideoFacade();
             var watcher = new FileSystemWatcher();
             watcher.Path = folderPath;
@@ -25,10 +24,16 @@ namespace windows_service_logic
             {
                 Task.Run(async () =>
                 {
-                    WaitFileReady(e.FullPath);
-                    await facade.Process(e.FullPath, e.Name);
+                    try
+                    {
+                        WaitFileReady(e.FullPath);
+                        await facade.Process(e.FullPath, e.Name);
+                    }
+                    catch (Exception ex)
+                    {
 
-                        //await fcmClient.SendNotificationAsync(new NotificationPayload
+                    }
+                    //await fcmClient.SendNotificationAsync(new NotificationPayload
                         //{
                         //    To = File.ReadAllText(tokenFilePath),
                         //    Notification = new Notification

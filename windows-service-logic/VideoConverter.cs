@@ -12,10 +12,6 @@ namespace windows_service_logic
     {
         private string toolFolderPath;
         private string workerFolderPath;
-        private Dictionary<string, string> cameraNameDictionary = new Dictionary<string, string>
-        {
-            {"ch3","Kitchen"}
-        };
 
         private const int SecondsToCutFromTheEnd = 6;
         private const int SecondsToLeaveForThePreRecordPart = 3;
@@ -40,10 +36,9 @@ namespace windows_service_logic
                 throw new Exception("Worker folder path is empty.");
             }
         }
-        public VideoMetadata ProcessVideo(string path, string name)
+        public VideoMetadata ProcessVideo(string path, string name, VideoMetadata metadata)
         {
             var processFolderName = $"{workerFolderPath}\\{Guid.NewGuid()}";
-            var metadata = this.ParseMetadata(name);
 
             //make mkv format from dav format.
             this.RunCommand(this.ConvertFromToDavToMkv(path, $"{processFolderName}\\{InitialFileName}"));
@@ -106,20 +101,21 @@ namespace windows_service_logic
             Directory.Delete(path, true);
         }
 
-        #region private
-        private VideoMetadata ParseMetadata(string name)
+        public VideoMetadata ParseMetadata(string name)
         {
             var metadata = new VideoMetadata();
 
             var nameParts = name.Split('_');
             metadata.DVRName = nameParts[0];
-            metadata.CameraName = cameraNameDictionary[nameParts[1]];
+            metadata.CameraName = nameParts[1];
             metadata.IsMain = nameParts[2].Contains("main");
 
             metadata.FileName =
                 $"{nameParts[0]}_{metadata.CameraName}_{nameParts[3].Substring(0, 4)}-{nameParts[3].Substring(4, 2)}-{nameParts[3].Substring(6, 2)}--{nameParts[3].Substring(8, 2)}-{nameParts[3].Substring(10, 2)}-{nameParts[3].Substring(12, 2)}.mp4";
             return metadata;
         }
+
+        #region private
 
         private DateTime ParseDateTime(string date)
         {
