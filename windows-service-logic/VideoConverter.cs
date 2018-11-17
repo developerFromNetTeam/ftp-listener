@@ -4,6 +4,7 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using NLog;
 using windows_service_logic.Models;
 
 namespace windows_service_logic
@@ -21,6 +22,7 @@ namespace windows_service_logic
         private const string FileNameWithSplitedPartOne = "video-end-cut-split-001.mp4";
         private const string FileNameWithSplitedPartTwo = "video-end-cut-split-002.mp4";
         private const string FileNameWithSplitedAndReEncoded = "video-end-cut-split-formated.mp4";
+        private Logger logger;
 
         public VideoConverter()
         {
@@ -35,25 +37,42 @@ namespace windows_service_logic
             {
                 throw new Exception("Worker folder path is empty.");
             }
+
+            this.logger = NLog.LogManager.GetCurrentClassLogger();
         }
-        public VideoMetadata ProcessVideo(string path, string name, VideoMetadata metadata)
+        public VideoMetadata ProcessVideo(string path, string name, VideoMetadata metadata, string processFileId)
         {
             var processFolderName = $"{workerFolderPath}\\{Guid.NewGuid()}";
+            this.logger.Info($"ProcessFileId:{processFileId}. Process folder name - {processFolderName}");
 
             //make mkv format from dav format.
-            this.RunCommand(this.ConvertFromToDavToMkv(path, $"{processFolderName}\\{InitialFileName}"));
+            this.RunCommand(this.ConvertFromToDavToMkv(path, $"{processFolderName}\\{InitialFileName}"), output =>
+            {
+                this.logger.Info($"ProcessFileId:{processFileId}. Maked mkv format from dav format. Output: {output}");
+            });
 
             //get initial video length.
             this.RunCommand(this.GetVideoLength($"{processFolderName}\\{InitialFileName}"), output0 =>
             {
-                var videoLength0 = TimeSpan.Parse(output0);
-                //cut 9 seconds from the end of video.
+                this.logger.Info($"ProcessFileId:{processFileId}. Got initial video length. Output:{output0}");
+                var parseDuration1 = output0.Split(',')[0].Substring(12);
+
+                var videoLength0 = TimeSpan.Parse(parseDuration1);
+
+                //cut seconds from the end of video.
                 this.RunCommand(this.CutVideo($"{processFolderName}\\{InitialFileName}",
                     $"{processFolderName}\\{FileNameWithCuttedEnd}", "00:00:00",
-                    videoLength0.Subtract(TimeSpan.FromSeconds(SecondsToCutFromTheEnd)).ToString()));
+                    videoLength0.Subtract(TimeSpan.FromSeconds(SecondsToCutFromTheEnd)).ToString()), log =>
+                {
+                    this.logger.Info($"ProcessFileId:{processFileId}. Cut {SecondsToCutFromTheEnd} seconds from the end of video. Output: {log}");
+                });
 
                 // split video in two parts: pre-record part and main part.
-                this.RunCommand(this.SplitVideo($"{processFolderName}\\{FileNameWithCuttedEnd}", $"{processFolderName}\\{FileNameWithSplited}", "00:00:05"));
+                this.RunCommand(this.SplitVideo($"{processFolderName}\\{FileNameWithCuttedEnd}", $"{processFolderName}\\{FileNameWithSplited}", "00:00:05"),
+                    log =>
+                    {
+                        this.logger.Info($"ProcessFileId:{processFileId}. Splited video in two parts: pre-record part and main part. Output: {log}");
+                    });
 
                 if (File.Exists($"{processFolderName}\\{FileNameWithSplitedPartTwo}"))
                 {
@@ -61,31 +80,45 @@ namespace windows_service_logic
                     this.RunCommand(this.GetVideoLength($"{processFolderName}\\{FileNameWithSplitedPartOne}"),
                         output1 =>
                         {
-                            var videoLength1 = TimeSpan.Parse(output1);
+                            var parseDuration = output1.Split(',')[0].Substring(12);
+                            this.logger.Info($"ProcessFileId:{processFileId}. Got length of pre-record part. Output: {output1}");
+                            var videoLength1 = TimeSpan.Parse(parseDuration);
 
                             // re-encode pre-record part in order to cut correctly, and cut it.
                             this.RunCommand(this.ReEncodeAndCutVideo(
                                 $"{processFolderName}\\{FileNameWithSplitedPartOne}",
                                 $"{processFolderName}\\{FileNameWithSplitedAndReEncoded}",
                                 videoLength1.Subtract(TimeSpan.FromSeconds(SecondsToLeaveForThePreRecordPart))
-                                    .ToString(), videoLength1.ToString()));
+                                    .ToString(), videoLength1.ToString()), log =>
+                            {
+                                this.logger.Info($"ProcessFileId:{processFileId}. Re-encoded pre-record part in order to cut correctly, and cut it. Output: {log}");
+                            });
 
                             //merge two parts into result video.
                             this.RunCommand(this.MergeVideoParts(
                                 $"{processFolderName}\\{FileNameWithSplitedAndReEncoded}",
                                 $"{processFolderName}\\{FileNameWithSplitedPartTwo}",
-                                $"{processFolderName}\\{metadata.FileName}"));
+                                $"{processFolderName}\\{metadata.FileName}"), log =>
+                            {
+                                this.logger.Info($"ProcessFileId:{processFileId}. Merged two parts into result video. Output: {log}");
+                            });
                         });
                 }
                 else
                 {
-                    this.RunCommand(this.RenameFile($"{processFolderName}\\{FileNameWithCuttedEnd}", $"{metadata.FileName}"));
+                    this.RunCommand(this.RenameFile($"{processFolderName}\\{FileNameWithCuttedEnd}", $"{metadata.FileName}"),
+                        log =>
+                        {
+                            this.logger.Info($"ProcessFileId:{processFileId}. Renamed to result name. Output: {log}");
+                        });
                 }
             });
 
             this.RunCommand(this.GetVideoLength($"{processFolderName}\\{metadata.FileName}"), output =>
             {
-                metadata.VideoLength = TimeSpan.Parse(output).ToString("hh':'mm':'ss");
+                this.logger.Info($"ProcessFileId:{processFileId}. Got final video length. Output: {output}");
+                var parseDuration = output.Split(',')[0].Substring(12);
+                metadata.VideoLength = TimeSpan.Parse(parseDuration).ToString("hh':'mm':'ss");
             });
 
             var size = (new FileInfo($"{processFolderName}\\{metadata.FileName}").Length / 1024.0 / 1024.0).ToString("0.00");
@@ -96,9 +129,10 @@ namespace windows_service_logic
             return metadata;
         }
 
-        public void DeleteVideoProcessDirectory(string path)
+        public void DeleteVideoProcessDirectory(string path, string processFileId)
         {
             Directory.Delete(path, true);
+            this.logger.Info($"ProcessFileId:{processFileId}. Deleted working folder - {path}");
         }
 
         public VideoMetadata ParseMetadata(string name)
@@ -134,7 +168,7 @@ namespace windows_service_logic
 
         private string GetVideoLength(string filePath)
         {
-            return $"/C \"{toolFolderPath}\\ffmpeg -i {filePath} 2>&1 | grep Duration | cut -d ' ' -f 4 | sed s/,//\"";
+            return $"/C \"{toolFolderPath}\\ffmpeg -i {filePath} 2>&1 | find \"Duration\"\"";
         }
 
         /// <summary>

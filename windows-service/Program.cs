@@ -5,7 +5,7 @@ using System.ServiceProcess;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace windows_service_worker
+namespace windows_service
 {
     static class Program
     {

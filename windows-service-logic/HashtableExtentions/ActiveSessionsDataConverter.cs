@@ -9,7 +9,8 @@ namespace windows_service_logic.HashtableExtentions
         {
             return new ActiveSessionsData
             {
-                FcmToken = hashtable["FcmToken"].ToString()
+                FcmToken = hashtable["FcmToken"].ToString(),
+                UserId = hashtable["UserId"].ToString()
             };
         }
     }

@@ -19,5 +19,11 @@ namespace windows_service_logic.Models
         public string FilePath { get; set; }
 
         public string FileName { get; set; }
+
+        public override string ToString()
+        {
+            return
+                $"DVRName:{DVRName}, CameraName:{CameraName}, IsMain:{IsMain}, VideoLength:{VideoLength}, VideoSizeMb:{VideoSizeMb}, DirectoryPath:{DirectoryPath}, FilePath:{FilePath}, FileName:{FileName}";
+        }
     }
 }

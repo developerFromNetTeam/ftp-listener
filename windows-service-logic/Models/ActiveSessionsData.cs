@@ -3,5 +3,6 @@
     public class ActiveSessionsData
     {
         public string FcmToken { get; set; }
+        public string UserId { get; set; }
     }
 }

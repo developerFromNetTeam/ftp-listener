@@ -30,9 +30,9 @@ namespace windows_service_logic
             this.firebaseServerKey = firebaseServerKey;
         }
 
-        public async Task SendNotificationAsync(NotificationPayload notification)
+        public async Task<string> SendNotificationAsync(NotificationPayload notification)
         {
-            await this.CallFcm(this.GenerateStringContent(notification));
+            return await this.CallFcm(this.GenerateStringContent(notification));
         }
 
         private StringContent GenerateStringContent(dynamic model)

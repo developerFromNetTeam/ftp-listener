@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Configuration;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using System.Web;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Blob;
+using LogLevel = NLog.LogLevel;
 
 namespace windows_service_logic
 {
@@ -13,42 +10,43 @@ namespace windows_service_logic
     {
         public static void Run()
         {
-            var folderPath = ConfigurationSettings.AppSettings["folderPath"];
-
-            var facade = new VideoFacade();
-            var watcher = new FileSystemWatcher();
-            watcher.Path = folderPath;
-            watcher.NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite
-                                   | NotifyFilters.FileName | NotifyFilters.DirectoryName;
-            watcher.Created += (sender, e) =>
+            var logger = NLog.LogManager.GetCurrentClassLogger();
+            try
             {
-                Task.Run(async () =>
+                logger.Info($"Started worker at {DateTime.UtcNow.ToString()}");
+
+                var folderPath = ConfigurationSettings.AppSettings["folderPath"];
+
+                if (string.IsNullOrWhiteSpace(folderPath))
                 {
-                    try
+                    throw new Exception("Folder path is empty");
+                }
+
+                var facade = new VideoFacade();
+                var watcher = new FileSystemWatcher();
+                watcher.Path = folderPath;
+                watcher.NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite
+                                       | NotifyFilters.FileName | NotifyFilters.DirectoryName;
+                watcher.Created += (sender, e) =>
+                {
+                    logger.Info($"New notify by path: {e.FullPath}");
+                    Task.Run(async () =>
                     {
+                        logger.Info($"Waiting copying file: {e.FullPath}");
                         WaitFileReady(e.FullPath);
+                        logger.Info($"File is copied: {e.FullPath}");
                         await facade.Process(e.FullPath, e.Name);
-                    }
-                    catch (Exception ex)
-                    {
 
-                    }
-                    //await fcmClient.SendNotificationAsync(new NotificationPayload
-                        //{
-                        //    To = File.ReadAllText(tokenFilePath),
-                        //    Notification = new Notification
-                        //    {
-                        //        Title = "New video available.",
-                        //        ClickAction = cloudBlockBlob.Uri.ToString(),
-                        //        Icon = "https://sec-market.com.ua/889-large_default/dahua-dh-hac-hdw1000m-s3.jpg",
-                        //        Body = "Size: " + (cloudBlockBlob.Properties.Length / 1048576).ToString("0.00 MB")
-                        //    }
-                        //});
                     });
-            };
+                };
 
-            watcher.EnableRaisingEvents = true;
-
+                watcher.IncludeSubdirectories = true;
+                watcher.EnableRaisingEvents = true;
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Worker error: {ex.Message}");
+            }
             Console.ReadLine();
         }
 

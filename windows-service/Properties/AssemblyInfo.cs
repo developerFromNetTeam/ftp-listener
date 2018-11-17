@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("windows-service-worker")]
+[assembly: AssemblyTitle("windows-service")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("EPAM Systems")]
-[assembly: AssemblyProduct("windows-service-worker")]
+[assembly: AssemblyProduct("windows-service")]
 [assembly: AssemblyCopyright("Copyright © EPAM Systems 2018")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("6e083a50-4b70-46e1-ae5a-919ee2214ecc")]
+[assembly: Guid("6cdffb30-e4c6-45e9-a434-3b54b8563965")]
 
 // Version information for an assembly consists of the following four values:
 //
