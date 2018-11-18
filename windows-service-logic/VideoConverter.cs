@@ -144,7 +144,7 @@ namespace windows_service_logic
             metadata.DVRName = nameParts[0].Split('\\').Last();
             metadata.CameraName = nameParts[1];
             metadata.IsMain = nameParts[2].Contains("main");
-
+            metadata.Date = this.ParseDateTime(nameParts[3]);
             metadata.FileName =
                 $"{metadata.DVRName}_{metadata.CameraName}_{nameParts[3].Substring(0, 4)}-{nameParts[3].Substring(4, 2)}-{nameParts[3].Substring(6, 2)}--{nameParts[3].Substring(8, 2)}-{nameParts[3].Substring(10, 2)}-{nameParts[3].Substring(12, 2)}.mp4";
             return metadata;

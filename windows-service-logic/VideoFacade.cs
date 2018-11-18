@@ -62,8 +62,8 @@ namespace windows_service_logic
                     {
                         Notification = new Notification
                         {
-                            Title = cameraOptions.FirstOrDefault(x => x.CameraSystemName == metadata.CameraName)
-                                        ?.CameraUserName ?? "None",
+                            Title = (cameraOptions.FirstOrDefault(x => x.CameraSystemName == metadata.CameraName)
+                                        ?.CameraUserName ?? "None")+" at "+ metadata.Date.ToString("dd/MM/yyyy HH:mm"),
                             ClickAction = azureFileUrl,
                             Icon = "https://sec-market.com.ua/889-large_default/dahua-dh-hac-hdw1000m-s3.jpg",
                             Body = $"Length: {metadata.VideoLength}  Size: {metadata.VideoSizeMb}"
