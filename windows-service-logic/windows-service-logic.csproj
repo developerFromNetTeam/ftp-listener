@@ -93,6 +93,7 @@
     <Compile Include="HashtableExtentions\NotificationOptionsConverter.cs" />
     <Compile Include="Models\ActiveSessionsData.cs" />
     <Compile Include="Models\NotificationOption.cs" />
+    <Compile Include="Models\UploadedVideoFileModel.cs" />
     <Compile Include="Models\VideoMetadata.cs" />
     <Compile Include="MongoContext.cs" />
     <Compile Include="Notification.cs" />

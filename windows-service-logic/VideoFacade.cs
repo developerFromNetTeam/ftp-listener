@@ -51,6 +51,9 @@ namespace windows_service_logic
                 var azureFileUrl = await this.blobStorageClient.UploadFile(metadata.FilePath, metadata.FileName);
                 this.logger.Info($"ProcessFileId:{processFileId}. Uploaded to azure - {azureFileUrl}");
 
+                await this.mongoContext.AddUploadedVideoFile(metadata.FileName, metadata.FilePath);
+                this.logger.Info($"ProcessFileId:{processFileId}. Added uploaded video info to database.");
+
                 this.videoConverter.DeleteVideoProcessDirectory(metadata.DirectoryPath, processFileId);
 
                 if (isNotify)

@@ -33,6 +33,19 @@ namespace windows_service_logic
 
         }
 
+        public async Task AddUploadedVideoFile(string fileName, string filePath)
+        {
+            var model = new UploadedVideoFileModel
+            {
+                Id = Guid.NewGuid().ToString(),
+                FileName = fileName,
+                FilePath = filePath.Substring(0, filePath.Length - fileName.Length),
+                Date = DateTime.UtcNow
+            };
+            var collection = database.GetCollection<UploadedVideoFileModel>("uploadedVideoFiles");
+            await collection.InsertOneAsync(model);
+        }
+
         public async Task<IEnumerable<NotificationOption>> GetCamerasOptionsAsync(string dvrName)
         {
             var collection = database.GetCollection<BsonDocument>("dvrNotificationOptions");
