@@ -29,15 +29,22 @@ namespace windows_service_logic
                                        | NotifyFilters.FileName | NotifyFilters.DirectoryName;
                 watcher.Created += (sender, e) =>
                 {
-                    logger.Info($"New notify by path: {e.FullPath}");
-                    Task.Run(async () =>
+                    if (e.Name.Contains(".dav"))
                     {
-                        logger.Info($"Waiting copying file: {e.FullPath}");
-                        WaitFileReady(e.FullPath);
-                        logger.Info($"File is copied: {e.FullPath}");
-                        await facade.Process(e.FullPath, e.Name);
+                        logger.Info($"New notify by path: {e.FullPath}");
+                        Task.Run(async () =>
+                        {
+                            logger.Info($"Waiting copying file: {e.FullPath}");
+                            WaitFileReady(e.FullPath);
+                            logger.Info($"File is copied: {e.FullPath}");
+                            await facade.Process(e.FullPath, e.Name);
 
-                    });
+                        });
+                    }
+                    else
+                    {
+                        logger.Warn($"Not supported file type: {e.Name}");
+                    }
                 };
 
                 watcher.IncludeSubdirectories = true;
