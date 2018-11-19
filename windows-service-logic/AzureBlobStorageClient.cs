@@ -39,8 +39,9 @@ namespace windows_service_logic
         {
             var cloudBlockBlob = this.BlobContainer.GetBlockBlobReference(name);
             cloudBlockBlob.Properties.ContentType = "video/mp4";
-                //System.Web.MimeMapping.GetMimeMapping(fullPath);
+            //System.Web.MimeMapping.GetMimeMapping(fullPath);
             await cloudBlockBlob.UploadFromFileAsync(fullPath);
+            await cloudBlockBlob.SetStandardBlobTierAsync(StandardBlobTier.Cool);
             await cloudBlockBlob.FetchAttributesAsync();
             return cloudBlockBlob.Uri.ToString();
         }
