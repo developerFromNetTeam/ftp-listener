@@ -8,6 +8,8 @@ namespace windows_service_logic.Models
 
         public string CameraName { get; set; }
 
+        public string ParsedCameraName { get; set; }
+
         public bool IsMain { get; set; }
 
         public string VideoLength { get; set; }

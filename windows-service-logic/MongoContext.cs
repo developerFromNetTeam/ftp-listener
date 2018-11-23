@@ -30,17 +30,19 @@ namespace windows_service_logic
             var sessionData = await cursor.ToListAsync();
             var sessionDataHash = sessionData.Select(e => e.ToHashtable());
             return sessionDataHash.Select(x => x.ToActiveSessionsData()).ToList();
-
         }
 
-        public async Task AddUploadedVideoFile(string fileName, string filePath)
+        public async Task AddUploadedVideoFile(VideoMetadata metadata, string azureUrl)
         {
             var model = new UploadedVideoFileModel
             {
                 Id = Guid.NewGuid().ToString(),
-                FileName = fileName,
-                FilePath = filePath.Substring(0, filePath.Length - fileName.Length),
-                Date = DateTime.UtcNow
+                FileName = metadata.FileName,
+                FilePath = azureUrl,
+                Date = DateTime.UtcNow,
+                DvrName = metadata.DVRName,
+                VideoStartDateLocal = metadata.Date,
+                CameraName = metadata.ParsedCameraName
             };
             var collection = database.GetCollection<UploadedVideoFileModel>("uploadedVideoFiles");
             await collection.InsertOneAsync(model);

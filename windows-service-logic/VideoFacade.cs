@@ -41,8 +41,9 @@ namespace windows_service_logic
                 var cameraOptions = await this.mongoContext.GetCamerasOptionsAsync(metadata.DVRName);
                 this.logger.Info($"ProcessFileId:{processFileId}. Get cameras options - {JsonConvert.SerializeObject(cameraOptions)}");
 
-                var isNotify = cameraOptions.FirstOrDefault(x => x.CameraSystemName == metadata.CameraName)
-                                   ?.IsNotificationEnable ?? false;
+                var cameraData = cameraOptions.FirstOrDefault(x => x.CameraSystemName == metadata.CameraName);
+                var isNotify = cameraData?.IsNotificationEnable ?? false;
+                metadata.ParsedCameraName = cameraData?.CameraUserName ?? "None";
 
                 this.logger.Info($"ProcessFileId:{processFileId}. Started converter.");
                 metadata = this.videoConverter.ProcessVideo(filePath, name, metadata, processFileId);
@@ -51,7 +52,8 @@ namespace windows_service_logic
                 var azureFileUrl = await this.blobStorageClient.UploadFile(metadata.FilePath, metadata.FileName);
                 this.logger.Info($"ProcessFileId:{processFileId}. Uploaded to azure - {azureFileUrl}");
 
-                await this.mongoContext.AddUploadedVideoFile(metadata.FileName, metadata.FilePath);
+
+                await this.mongoContext.AddUploadedVideoFile(metadata, azureFileUrl);
                 this.logger.Info($"ProcessFileId:{processFileId}. Added uploaded video info to database.");
 
                 this.videoConverter.DeleteVideoProcessDirectory(metadata.DirectoryPath, processFileId);
