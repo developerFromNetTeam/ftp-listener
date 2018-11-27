@@ -23,6 +23,7 @@ namespace windows_service_logic
         private const string FileNameWithSplitedPartOne = "video-end-cut-split-001.mp4";
         private const string FileNameWithSplitedPartTwo = "video-end-cut-split-002.mp4";
         private const string FileNameWithSplitedAndReEncoded = "video-end-cut-split-formated.mp4";
+        private const string FileNameWithFinalEncodedVideo = "video-final-encoding.mp4";
         private Logger logger;
 
         public VideoConverter()
@@ -95,23 +96,60 @@ namespace windows_service_logic
                                 this.logger.Info($"ProcessFileId:{processFileId}. Re-encoded pre-record part in order to cut correctly, and cut it. Output: {log}");
                             });
 
-                            //merge two parts into result video.
-                            this.RunCommand(this.MergeVideoParts(
-                                $"{processFolderName}\\{FileNameWithSplitedAndReEncoded}",
-                                $"{processFolderName}\\{FileNameWithSplitedPartTwo}",
-                                $"{processFolderName}\\{metadata.FileName}"), log =>
+                            if (metadata.CameraName == "ch1")
                             {
-                                this.logger.Info($"ProcessFileId:{processFileId}. Merged two parts into result video. Output: {log}");
-                            });
+                                //merge two parts into result video.
+                                this.RunCommand(this.MergeVideoParts(
+                                    $"{processFolderName}\\{FileNameWithSplitedAndReEncoded}",
+                                    $"{processFolderName}\\{FileNameWithSplitedPartTwo}",
+                                    $"{processFolderName}\\{FileNameWithFinalEncodedVideo}"), log =>
+                                {
+                                    this.logger.Info(
+                                        $"ProcessFileId:{processFileId}. Merged two parts into result video. Output: {log}");
+
+                                    this.RunCommand(this.FinalConvertWithFFMPEG(
+                                        $"{processFolderName}\\{FileNameWithFinalEncodedVideo}",
+                                        $"{processFolderName}\\{metadata.FileName}"), info =>
+                                    {
+                                        this.logger.Info(
+                                            $"ProcessFileId:{processFileId}. Final converted with ffmpeg. Output: {info}");
+                                    });
+                                });
+                            }
+                            else
+                            {
+                                //merge two parts into result video.
+                                this.RunCommand(this.MergeVideoParts(
+                                    $"{processFolderName}\\{FileNameWithSplitedAndReEncoded}",
+                                    $"{processFolderName}\\{FileNameWithSplitedPartTwo}",
+                                    $"{processFolderName}\\{metadata.FileName}"), log =>
+                                {
+                                    this.logger.Info(
+                                        $"ProcessFileId:{processFileId}. Merged two parts into result video. Output: {log}");
+                                });
+                            }
                         });
                 }
                 else
                 {
-                    this.RunCommand(this.RenameFile($"{processFolderName}\\{FileNameWithCuttedEnd}", $"{metadata.FileName}"),
-                        log =>
+                    if (metadata.CameraName == "ch1")
+                    {
+                        this.RunCommand(this.FinalConvertWithFFMPEG(
+                            $"{processFolderName}\\{FileNameWithCuttedEnd}",
+                            $"{processFolderName}\\{metadata.FileName}"), info =>
                         {
-                            this.logger.Info($"ProcessFileId:{processFileId}. Renamed to result name. Output: {log}");
+                            this.logger.Info(
+                                $"ProcessFileId:{processFileId}. Final converted with ffmpeg. Output: {info}");
                         });
+                    }
+                    else
+                    {
+                        this.RunCommand(this.RenameFile($"{processFolderName}\\{FileNameWithCuttedEnd}", $"{metadata.FileName}"),
+                            log =>
+                            {
+                                this.logger.Info($"ProcessFileId:{processFileId}. Renamed to result name. Output: {log}");
+                            });
+                    }
                 }
             });
 
@@ -160,6 +198,11 @@ namespace windows_service_logic
         private string RenameFile(string filePath, string newName)
         {
             return $"/C \"rename {filePath} {newName}\"";
+        }
+
+        private string FinalConvertWithFFMPEG(string filePath, string newPath)
+        {
+            return $"/C \"{toolFolderPath}\\ffmpeg -y -i {filePath} -vcodec libx264 -crf 25 {newPath}\"";
         }
 
         private string ConvertFromToDavToMkv(string filePath, string newFilePath)

@@ -38,7 +38,7 @@ namespace windows_service_logic
         public async Task<string> UploadFile(string fullPath, string name)
         {
             var cloudBlockBlob = this.BlobContainer.GetBlockBlobReference(name);
-            cloudBlockBlob.Properties.ContentType = "video/mp4";
+            cloudBlockBlob.Properties.ContentType = "video/webm";
             //System.Web.MimeMapping.GetMimeMapping(fullPath);
             await cloudBlockBlob.UploadFromFileAsync(fullPath);
             await cloudBlockBlob.FetchAttributesAsync();
